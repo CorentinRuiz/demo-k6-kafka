@@ -1,0 +1,76 @@
+version: '3.8'
+
+services:
+  api:
+    build: ./api
+    ports:
+      - "8080:8080"
+    depends_on:
+      - kafka
+    networks:
+      - k6net
+
+  influxdb:
+    image: influxdb:1.8
+    ports:
+      - "8086:8086"
+    environment:
+      - INFLUXDB_DB=k6
+    networks:
+      - k6net
+    volumes:
+      - influxdb:/var/lib/influxdb
+
+  grafana:
+    image: grafana/grafana
+    ports:
+      - "3000:3000"
+    networks:
+      - k6net
+    depends_on:
+      - influxdb
+    volumes:
+      - grafana:/var/lib/grafana
+
+  k6:
+    image: grafana/k6
+    depends_on:
+      - api
+      - influxdb
+    volumes:
+      - ./k6:/k6
+    networks:
+      - k6net
+    entrypoint: ["k6", "run", "--out", "influxdb=http://influxdb:8086/k6", "/k6/test-perf.js"]
+
+  zookeeper:
+    image: bitnami/zookeeper:latest
+    ports:
+      - "2181:2181"
+    environment:
+      ALLOW_ANONYMOUS_LOGIN: "yes"
+    networks:
+      - k6net
+
+  kafka:
+    image: bitnami/kafka:3.4
+    ports:
+      - "9092:9092"
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_CFG_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_CFG_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT
+      KAFKA_CFG_LISTENERS: PLAINTEXT://:9092
+      KAFKA_CFG_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092
+      ALLOW_PLAINTEXT_LISTENER: "yes"
+    depends_on:
+      - zookeeper
+    networks:
+      - k6net
+
+networks:
+  k6net:
+
+volumes:
+  influxdb:
+  grafana:
