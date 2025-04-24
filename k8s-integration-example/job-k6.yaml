@@ -1,0 +1,19 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: k6-load-test
+spec:
+  template:
+    spec:
+      containers:
+        - name: k6
+          image: grafana/k6
+          command: ["k6", "run", "--out", "influxdb=http://influxdb:8086/k6", "/scripts/test-perf.js"]
+          volumeMounts:
+            - name: k6-scripts
+              mountPath: /scripts
+      volumes:
+        - name: k6-scripts
+          configMap:
+            name: k6-script-cm
+      restartPolicy: Never
